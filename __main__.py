@@ -1,5 +1,6 @@
 import asyncio
 import os
+import socket
 import time
 from os import getenv
 
@@ -7,16 +8,13 @@ import paramiko
 from aiogram import Bot, Dispatcher
 from aiogram.dispatcher.router import Router
 from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     FSInputFile,
-    InputFile,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
-    URLInputFile,
 )
 from dotenv import load_dotenv
 
@@ -24,7 +22,8 @@ load_dotenv()
 
 # general settings
 TOKEN = getenv("BOT_TOKEN")
-VPN_SERVER_IP = "45.9.74.10"
+VPN_SERVER_IP = getenv("VPN_SERVER_IP")
+VPN_SERVER_IP_2 = getenv("VPN_SERVER_IP_2")
 SSH_USERNAME = "root"
 SSH_PASSWORD = getenv("PASSWORD")
 SCRIPT_PATH = "/root/script.py"
@@ -32,6 +31,10 @@ OUTPUT_DIR = "/root/clients"
 LOCAL_DOWNLOAD_DIR = "./downloads"
 CA_PASSPHRASE = getenv("CA_PASSPHRASE")
 BOT_PASSWORD = getenv("BOT_PASSWORD")
+SERVERS = {
+    "OpenVPN 1": (VPN_SERVER_IP, 1194),
+    "OpenVPN 2": (VPN_SERVER_IP_2, 1194),
+}
 if not TOKEN or not CA_PASSPHRASE:
     raise ValueError("BOT_TOKEN or CA_PASSPHRASE is not set")
 
@@ -47,6 +50,7 @@ user_inputs = {}
 
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
+        [KeyboardButton(text="📊 Статус серверов")],
         [KeyboardButton(text="🔐 Сгенерировать VPN")],
     ],
     resize_keyboard=True,
@@ -124,6 +128,24 @@ async def handle_user_input(message: Message):
         user_inputs.pop(user_id, None)
 
 
+@router.message(lambda message: message.text == "📊 Статус серверов")
+async def check_servers_status(message: Message):
+    await message.answer("Проверяю статусы серверов ⏳")
+
+    tasks = [check_port(host, port) for host, port in SERVERS.values()]
+
+    results = await asyncio.gather(*tasks)
+
+    response_lines = []
+    for (name, (host, port)), is_up in zip(SERVERS.items(), results):
+        if is_up:
+            response_lines.append(f"🟢 {name} ({port}) — running")
+        else:
+            response_lines.append(f"🔴 {name} ({port}) — not running")
+
+    await message.answer("\n".join(response_lines), reply_markup=main_keyboard)
+
+
 @router.message()
 async def fallback_handler(message: Message):
     user_id = message.from_user.id
@@ -175,6 +197,19 @@ async def generate_vpn_config(message: Message):
         )
     except Exception as e:
         await message.answer(f"An error occurred: {e}")
+
+
+def _check_port_sync(host: str, port: int, timeout: int = 3) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+async def check_port(host: str, port: int, timeout: int = 3) -> bool:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _check_port_sync, host, port, timeout)
 
 
 # Main entry point
