@@ -33,7 +33,7 @@ LOCAL_DOWNLOAD_DIR = "./downloads"
 CA_PASSPHRASE = getenv("CA_PASSPHRASE")
 BOT_PASSWORD = getenv("BOT_PASSWORD")
 if not TOKEN or not CA_PASSPHRASE:
-    raise ValueError("BOT_TOKEN is not set")
+    raise ValueError("BOT_TOKEN or CA_PASSPHRASE is not set")
 
 # All handlers should be attached to the Router (or Dispatcher)
 # Initialize bot and dispatcher
