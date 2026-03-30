@@ -7,7 +7,7 @@ from os import getenv
 import paramiko
 from aiogram import Bot, Dispatcher
 from aiogram.dispatcher.router import Router
-from aiogram.filters import Command
+from aiogram.filters.command import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     FSInputFile,
@@ -22,8 +22,6 @@ load_dotenv()
 
 # general settings
 TOKEN = getenv("BOT_TOKEN")
-VPN_SERVER_IP = getenv("VPN_SERVER_IP")
-VPN_SERVER_IP_2 = getenv("VPN_SERVER_IP_2")
 SSH_USERNAME = "root"
 SSH_PASSWORD = getenv("PASSWORD")
 SCRIPT_PATH = "/root/script.py"
@@ -31,10 +29,6 @@ OUTPUT_DIR = "/root/clients"
 LOCAL_DOWNLOAD_DIR = "./downloads"
 CA_PASSPHRASE = getenv("CA_PASSPHRASE")
 BOT_PASSWORD = getenv("BOT_PASSWORD")
-SERVERS = {
-    "OpenVPN 1": (VPN_SERVER_IP, 1194),
-    "OpenVPN 2": (VPN_SERVER_IP_2, 1194),
-}
 if not TOKEN or not CA_PASSPHRASE:
     raise ValueError("BOT_TOKEN or CA_PASSPHRASE is not set")
 
@@ -50,7 +44,6 @@ user_inputs = {}
 
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="📊 Статус серверов")],
         [KeyboardButton(text="🔐 Сгенерировать VPN")],
     ],
     resize_keyboard=True,
@@ -126,24 +119,6 @@ async def handle_user_input(message: Message):
 
         await generate_vpn_config(message)
         user_inputs.pop(user_id, None)
-
-
-@router.message(lambda message: message.text == "📊 Статус серверов")
-async def check_servers_status(message: Message):
-    await message.answer("Проверяю статусы серверов ⏳")
-
-    tasks = [check_port(host, port) for host, port in SERVERS.values()]
-
-    results = await asyncio.gather(*tasks)
-
-    response_lines = []
-    for (name, (host, port)), is_up in zip(SERVERS.items(), results):
-        if is_up:
-            response_lines.append(f"🟢 {name} ({port}) — running")
-        else:
-            response_lines.append(f"🔴 {name} ({port}) — not running")
-
-    await message.answer("\n".join(response_lines), reply_markup=main_keyboard)
 
 
 @router.message()
