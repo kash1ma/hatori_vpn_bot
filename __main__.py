@@ -22,6 +22,7 @@ load_dotenv()
 
 # general settings
 TOKEN = getenv("BOT_TOKEN")
+VPN_SERVER_IP = "45.9.74.10"
 SSH_USERNAME = "root"
 SSH_PASSWORD = getenv("PASSWORD")
 SCRIPT_PATH = "/root/script.py"
@@ -166,10 +167,10 @@ async def generate_vpn_config(message: Message):
 
         # Send the config file to the user
         input_file = FSInputFile(local_file_path)
-        await message.answer("Here is your OpenVPN configuration file:")
         await message.answer_document(
             FSInputFile(local_file_path, filename=config_file_name)
         )
+        await message.answer("Готовая конфигурация", reply_markup=main_keyboard)
     except Exception as e:
         await message.answer(f"An error occurred: {e}")
 
